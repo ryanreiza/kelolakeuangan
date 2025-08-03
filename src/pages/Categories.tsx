@@ -1,10 +1,4 @@
 import { useState } from "react";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
 import { CategoryList } from "@/components/CategoryList";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +10,13 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PlusCircle } from "lucide-react";
@@ -63,18 +64,18 @@ const initialCategoriesData: Record<CategoryKey, Category> = {
 
 const Categories = () => {
   const [categories, setCategories] = useState(initialCategoriesData);
-  const [activeTab, setActiveTab] = useState<CategoryKey>("pendapatan");
+  const [selectedCategory, setSelectedCategory] = useState<CategoryKey>("pendapatan");
   const [newItem, setNewItem] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const handleAddItem = () => {
     if (newItem.trim() !== "") {
       setCategories(prevCategories => {
-        const updatedItems = [...prevCategories[activeTab].items, newItem.trim()];
+        const updatedItems = [...prevCategories[selectedCategory].items, newItem.trim()];
         return {
           ...prevCategories,
-          [activeTab]: {
-            ...prevCategories[activeTab],
+          [selectedCategory]: {
+            ...prevCategories[selectedCategory],
             items: updatedItems,
           },
         };
@@ -115,12 +116,27 @@ const Categories = () => {
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle>Tambah Item ke {categories[activeTab].title}</DialogTitle>
+              <DialogTitle>Tambah Item Kategori Baru</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="category" className="text-right">
+                  Kategori
+                </Label>
+                <Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as CategoryKey)}>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Pilih kategori" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(categories) as CategoryKey[]).map((key) => (
+                      <SelectItem key={key} value={key}>{categories[key].title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="name" className="text-right">
-                  Nama
+                  Nama Item
                 </Label>
                 <Input
                   id="name"
@@ -141,30 +157,20 @@ const Categories = () => {
         </Dialog>
       </div>
 
-      <Tabs defaultValue="pendapatan" className="w-full" onValueChange={(value) => setActiveTab(value as CategoryKey)}>
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
-          <TabsTrigger value="pendapatan">Pendapatan</TabsTrigger>
-          <TabsTrigger value="pengeluaran">Pengeluaran</TabsTrigger>
-          <TabsTrigger value="tagihan">Tagihan</TabsTrigger>
-          <TabsTrigger value="tabungan">Tabungan</TabsTrigger>
-          <TabsTrigger value="investasi">Investasi</TabsTrigger>
-          <TabsTrigger value="hutang">Hutang</TabsTrigger>
-        </TabsList>
-        
+      <div className="space-y-4">
         {(Object.keys(categories) as CategoryKey[]).map((key) => {
           const category = categories[key];
           return (
-            <TabsContent value={key} className="mt-4" key={key}>
-              <CategoryList
-                title={category.title}
-                description={category.description}
-                items={category.items}
-                onDeleteItem={(item) => handleDeleteItem(key, item)}
-              />
-            </TabsContent>
+            <CategoryList
+              key={key}
+              title={category.title}
+              description={category.description}
+              items={category.items}
+              onDeleteItem={(item) => handleDeleteItem(key, item)}
+            />
           );
         })}
-      </Tabs>
+      </div>
     </div>
   );
 };
