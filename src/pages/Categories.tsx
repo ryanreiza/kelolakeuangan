@@ -32,7 +32,7 @@ interface Category {
 const initialCategoriesData: Record<CategoryKey, Category> = {
   pendapatan: {
     title: "Pendapatan",
-    description: "Kelola kategori untuk semua sumber pendapatan Anda.",
+    description: "Kelolakategori untuk semua sumber pendapatan Anda.",
     items: ["Gaji", "Bonus", "Freelance", "Investasi Pasif"],
   },
   pengeluaran: {
