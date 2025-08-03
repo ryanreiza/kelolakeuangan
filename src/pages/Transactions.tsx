@@ -32,19 +32,22 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { PlusCircle, Calendar as CalendarIcon, Trash2 } from "lucide-react";
-import { format } from "date-fns";
+import { PlusCircle, Calendar as CalendarIcon, Trash2, Loader2 } from "lucide-react";
+import { format, parseISO } from "date-fns";
 import { id } from "date-fns/locale";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
+import { showSuccess, showError } from "@/utils/toast";
 
 type TransactionType = "pemasukan" | "pengeluaran";
 
 interface Transaction {
   id: number;
-  date: Date;
+  date: string; // YYYY-MM-DD
   type: TransactionType;
   category: string;
   amount: number;
-  description: string;
+  description: string | null;
   account: string;
 }
 
@@ -69,7 +72,7 @@ const initialCategories = {
 };
 
 const Transactions = () => {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   // Form state
@@ -79,6 +82,48 @@ const Transactions = () => {
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [account, setAccount] = useState("");
+
+  const { data: transactions, isLoading } = useQuery<Transaction[]>({
+    queryKey: ['transactions'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .order('date', { ascending: false });
+      if (error) throw new Error(error.message);
+      return data || [];
+    }
+  });
+
+  const addTransactionMutation = useMutation({
+    mutationFn: async (newTransaction: Omit<Transaction, 'id'>) => {
+      const { error } = await supabase.from('transactions').insert([newTransaction]);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      showSuccess("Transaksi berhasil ditambahkan!");
+      setIsDialogOpen(false);
+      resetForm();
+    },
+    onError: (err) => {
+      showError(`Gagal menambahkan transaksi: ${err.message}`);
+    }
+  });
+
+  const deleteTransactionMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const { error } = await supabase.from('transactions').delete().match({ id });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      showSuccess("Transaksi berhasil dihapus.");
+    },
+    onError: (err) => {
+      showError(`Gagal menghapus transaksi: ${err.message}`);
+    }
+  });
 
   const resetForm = () => {
     setDate(new Date());
@@ -91,28 +136,22 @@ const Transactions = () => {
 
   const handleAddTransaction = () => {
     if (!date || !category || !amount || !account) {
-      // Simple validation
-      alert("Harap isi semua bidang yang diperlukan.");
+      showError("Harap isi semua bidang yang diperlukan.");
       return;
     }
-
-    const newTransaction: Transaction = {
-      id: Date.now(),
-      date,
+    const newTransaction = {
+      date: format(date, "yyyy-MM-dd"),
       type,
       category,
       amount: parseFloat(amount),
       description,
       account,
     };
-
-    setTransactions([...transactions, newTransaction]);
-    resetForm();
-    setIsDialogOpen(false);
+    addTransactionMutation.mutate(newTransaction);
   };
 
   const handleDeleteTransaction = (id: number) => {
-    setTransactions(transactions.filter(t => t.id !== id));
+    deleteTransactionMutation.mutate(id);
   };
 
   const formatCurrency = (value: number) => {
@@ -209,7 +248,10 @@ const Transactions = () => {
               <DialogClose asChild>
                 <Button variant="outline" onClick={resetForm}>Batal</Button>
               </DialogClose>
-              <Button onClick={handleAddTransaction}>Simpan</Button>
+              <Button onClick={handleAddTransaction} disabled={addTransactionMutation.isPending}>
+                {addTransactionMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Simpan
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -228,10 +270,16 @@ const Transactions = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {transactions.length > 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="h-24 text-center">
+                  Memuat data transaksi...
+                </TableCell>
+              </TableRow>
+            ) : transactions && transactions.length > 0 ? (
               transactions.map((t) => (
                 <TableRow key={t.id}>
-                  <TableCell>{format(t.date, "d MMM yyyy", { locale: id })}</TableCell>
+                  <TableCell>{format(parseISO(t.date), "d MMM yyyy", { locale: id })}</TableCell>
                   <TableCell>
                     <div className="font-medium">{t.category}</div>
                     <div className={`text-xs ${t.type === 'pemasukan' ? 'text-green-600' : 'text-red-600'}`}>
@@ -244,7 +292,7 @@ const Transactions = () => {
                   <TableCell>{t.description || "-"}</TableCell>
                   <TableCell>{t.account}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => handleDeleteTransaction(t.id)}>
+                    <Button variant="ghost" size="icon" onClick={() => handleDeleteTransaction(t.id)} disabled={deleteTransactionMutation.isPending}>
                       <Trash2 className="h-4 w-4 text-muted-foreground" />
                     </Button>
                   </TableCell>
