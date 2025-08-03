@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">dreamy-sloth-blink</string>
+    <string name="title_activity_main">dreamy-sloth-blink</string>
+    <string name="package_name">com.example.dreamyslothblink</string>
+    <string name="custom_url_scheme">com.example.dreamyslothblink</string>
+</resources>
