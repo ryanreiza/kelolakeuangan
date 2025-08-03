@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Tabs,
   TabsContent,
@@ -5,8 +6,29 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { CategoryList } from "@/components/CategoryList";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { PlusCircle } from "lucide-react";
 
-const categoriesData = {
+type CategoryKey = 'pendapatan' | 'pengeluaran' | 'tagihan' | 'tabungan' | 'investasi' | 'hutang';
+
+interface Category {
+  title: string;
+  description: string;
+  items: string[];
+}
+
+const initialCategoriesData: Record<CategoryKey, Category> = {
   pendapatan: {
     title: "Pendapatan",
     description: "Kelola kategori untuk semua sumber pendapatan Anda.",
@@ -40,13 +62,86 @@ const categoriesData = {
 };
 
 const Categories = () => {
+  const [categories, setCategories] = useState(initialCategoriesData);
+  const [activeTab, setActiveTab] = useState<CategoryKey>("pendapatan");
+  const [newItem, setNewItem] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  const handleAddItem = () => {
+    if (newItem.trim() !== "") {
+      setCategories(prevCategories => {
+        const updatedItems = [...prevCategories[activeTab].items, newItem.trim()];
+        return {
+          ...prevCategories,
+          [activeTab]: {
+            ...prevCategories[activeTab],
+            items: updatedItems,
+          },
+        };
+      });
+      setNewItem("");
+      setIsDialogOpen(false);
+    }
+  };
+
+  const handleDeleteItem = (categoryKey: CategoryKey, itemToDelete: string) => {
+    setCategories(prevCategories => {
+      const updatedItems = prevCategories[categoryKey].items.filter(item => item !== itemToDelete);
+      return {
+        ...prevCategories,
+        [categoryKey]: {
+          ...prevCategories[categoryKey],
+          items: updatedItems,
+        },
+      };
+    });
+  };
+
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-2">Manajemen Kategori</h1>
-      <p className="text-muted-foreground mb-6">
-        Atur semua kategori keuangan Anda di satu tempat.
-      </p>
-      <Tabs defaultValue="pendapatan" className="w-full">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold">Manajemen Kategori</h1>
+          <p className="text-muted-foreground">
+            Atur semua kategori keuangan Anda di satu tempat.
+          </p>
+        </div>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm" className="gap-1">
+              <PlusCircle className="h-4 w-4" />
+              Tambah Item
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Tambah Item ke {categories[activeTab].title}</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="name" className="text-right">
+                  Nama
+                </Label>
+                <Input
+                  id="name"
+                  value={newItem}
+                  onChange={(e) => setNewItem(e.target.value)}
+                  className="col-span-3"
+                  placeholder={`Contoh: Gaji Bulanan`}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button variant="outline">Batal</Button>
+              </DialogClose>
+              <Button onClick={handleAddItem}>Simpan</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <Tabs defaultValue="pendapatan" className="w-full" onValueChange={(value) => setActiveTab(value as CategoryKey)}>
         <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
           <TabsTrigger value="pendapatan">Pendapatan</TabsTrigger>
           <TabsTrigger value="pengeluaran">Pengeluaran</TabsTrigger>
@@ -55,48 +150,20 @@ const Categories = () => {
           <TabsTrigger value="investasi">Investasi</TabsTrigger>
           <TabsTrigger value="hutang">Hutang</TabsTrigger>
         </TabsList>
-        <TabsContent value="pendapatan" className="mt-4">
-          <CategoryList
-            title={categoriesData.pendapatan.title}
-            description={categoriesData.pendapatan.description}
-            initialItems={categoriesData.pendapatan.items}
-          />
-        </TabsContent>
-        <TabsContent value="pengeluaran" className="mt-4">
-          <CategoryList
-            title={categoriesData.pengeluaran.title}
-            description={categoriesData.pengeluaran.description}
-            initialItems={categoriesData.pengeluaran.items}
-          />
-        </TabsContent>
-        <TabsContent value="tagihan" className="mt-4">
-          <CategoryList
-            title={categoriesData.tagihan.title}
-            description={categoriesData.tagihan.description}
-            initialItems={categoriesData.tagihan.items}
-          />
-        </TabsContent>
-        <TabsContent value="tabungan" className="mt-4">
-          <CategoryList
-            title={categoriesData.tabungan.title}
-            description={categoriesData.tabungan.description}
-            initialItems={categoriesData.tabungan.items}
-          />
-        </TabsContent>
-        <TabsContent value="investasi" className="mt-4">
-          <CategoryList
-            title={categoriesData.investasi.title}
-            description={categoriesData.investasi.description}
-            initialItems={categoriesData.investasi.items}
-          />
-        </TabsContent>
-        <TabsContent value="hutang" className="mt-4">
-          <CategoryList
-            title={categoriesData.hutang.title}
-            description={categoriesData.hutang.description}
-            initialItems={categoriesData.hutang.items}
-          />
-        </TabsContent>
+        
+        {(Object.keys(categories) as CategoryKey[]).map((key) => {
+          const category = categories[key];
+          return (
+            <TabsContent value={key} className="mt-4" key={key}>
+              <CategoryList
+                title={category.title}
+                description={category.description}
+                items={category.items}
+                onDeleteItem={(item) => handleDeleteItem(key, item)}
+              />
+            </TabsContent>
+          );
+        })}
       </Tabs>
     </div>
   );
