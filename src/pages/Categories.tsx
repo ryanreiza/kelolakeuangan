@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { CategoryList } from "@/components/CategoryList";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,13 +11,6 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PlusCircle, Loader2 } from "lucide-react";
@@ -32,7 +26,7 @@ interface CategoryItem {
   type: CategoryKey;
 }
 
-const staticCategoryInfo = {
+const staticCategoryInfo: Record<CategoryKey, { title: string; description: string }> = {
   pendapatan: { title: "Pendapatan", description: "Kelola kategori untuk semua sumber pendapatan Anda." },
   pengeluaran: { title: "Pengeluaran", description: "Kelola kategori untuk semua pengeluaran rutin dan non-rutin." },
   tagihan: { title: "Tagihan", description: "Kelola kategori untuk semua tagihan bulanan." },
@@ -43,9 +37,11 @@ const staticCategoryInfo = {
 
 const Categories = () => {
   const queryClient = useQueryClient();
-  const [selectedCategory, setSelectedCategory] = useState<CategoryKey>("pendapatan");
+  const [searchParams] = useSearchParams();
   const [newItem, setNewItem] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  const activeCategory = (searchParams.get("type") as CategoryKey) || "pendapatan";
 
   const { data: categoriesData, isLoading } = useQuery<CategoryItem[]>({
     queryKey: ['categories'],
@@ -56,24 +52,12 @@ const Categories = () => {
     }
   });
 
-  const categories = useMemo(() => {
-    const grouped: Record<CategoryKey, { title: string; description: string; items: { id: number; name: string }[] }> = {
-      pendapatan: { ...staticCategoryInfo.pendapatan, items: [] },
-      pengeluaran: { ...staticCategoryInfo.pengeluaran, items: [] },
-      tagihan: { ...staticCategoryInfo.tagihan, items: [] },
-      tabungan: { ...staticCategoryInfo.tabungan, items: [] },
-      investasi: { ...staticCategoryInfo.investasi, items: [] },
-      hutang: { ...staticCategoryInfo.hutang, items: [] },
-    };
-    if (categoriesData) {
-      categoriesData.forEach(item => {
-        if (grouped[item.type]) {
-          grouped[item.type].items.push({ id: item.id, name: item.name });
-        }
-      });
-    }
-    return grouped;
-  }, [categoriesData]);
+  const activeCategoryItems = useMemo(() => {
+    if (!categoriesData) return [];
+    return categoriesData
+      .filter(item => item.type === activeCategory)
+      .map(item => ({ id: item.id, name: item.name }));
+  }, [categoriesData, activeCategory]);
 
   const addCategoryMutation = useMutation({
     mutationFn: async (newCat: { name: string; type: CategoryKey }) => {
@@ -103,9 +87,11 @@ const Categories = () => {
 
   const handleAddItem = () => {
     if (newItem.trim() !== "") {
-      addCategoryMutation.mutate({ name: newItem.trim(), type: selectedCategory });
+      addCategoryMutation.mutate({ name: newItem.trim(), type: activeCategory });
     }
   };
+
+  const currentCategoryInfo = staticCategoryInfo[activeCategory];
 
   return (
     <div>
@@ -119,19 +105,8 @@ const Categories = () => {
             <Button size="sm" className="gap-1"><PlusCircle className="h-4 w-4" />Tambah Item</Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader><DialogTitle>Tambah Item Kategori Baru</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>Tambah Item ke {currentCategoryInfo.title}</DialogTitle></DialogHeader>
             <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="category" className="text-right">Kategori</Label>
-                <Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as CategoryKey)}>
-                  <SelectTrigger className="col-span-3"><SelectValue placeholder="Pilih kategori" /></SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(categories) as CategoryKey[]).map((key) => (
-                      <SelectItem key={key} value={key}>{categories[key].title}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="name" className="text-right">Nama Item</Label>
                 <Input id="name" value={newItem} onChange={(e) => setNewItem(e.target.value)} className="col-span-3" placeholder="Contoh: Gaji Bulanan" />
@@ -148,20 +123,12 @@ const Categories = () => {
         </Dialog>
       </div>
       {isLoading ? <p>Memuat kategori...</p> :
-        <div className="space-y-4">
-          {(Object.keys(categories) as CategoryKey[]).map((key) => {
-            const category = categories[key];
-            return (
-              <CategoryList
-                key={key}
-                title={category.title}
-                description={category.description}
-                items={category.items}
-                onDeleteItem={(id) => deleteCategoryMutation.mutate(id)}
-              />
-            );
-          })}
-        </div>
+        <CategoryList
+          title={currentCategoryInfo.title}
+          description={currentCategoryInfo.description}
+          items={activeCategoryItems}
+          onDeleteItem={(id) => deleteCategoryMutation.mutate(id)}
+        />
       }
     </div>
   );
