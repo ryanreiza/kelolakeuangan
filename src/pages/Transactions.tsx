@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -174,7 +174,14 @@ const Transactions = () => {
     }).format(value);
   };
 
-  const availableCategories = categories?.filter(c => c.type === (type === 'pemasukan' ? 'pendapatan' : 'pengeluaran' || 'tagihan' || 'hutang')) || [];
+  const availableCategories = useMemo(() => {
+    if (!categories) return [];
+    if (type === 'pemasukan') {
+      return categories.filter(c => c.type === 'pendapatan');
+    } else {
+      return categories.filter(c => ['pengeluaran', 'tagihan', 'hutang'].includes(c.type));
+    }
+  }, [categories, type]);
 
   return (
     <div>
