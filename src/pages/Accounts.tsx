@@ -62,6 +62,15 @@ const Accounts = () => {
 
   const deleteAccountMutation = useMutation({
     mutationFn: async (id: number) => {
+      const accountToDelete = accounts?.find(acc => acc.id === id);
+      if (!accountToDelete) throw new Error("Akun tidak ditemukan.");
+
+      const { count } = await supabase.from('transactions').select('id', { count: 'exact' }).eq('account', accountToDelete.name);
+
+      if (count && count > 0) {
+        throw new Error('Akun ini digunakan oleh transaksi lain dan tidak dapat dihapus.');
+      }
+
       const { error } = await supabase.from('accounts').delete().match({ id });
       if (error) throw new Error(error.message);
     },
@@ -69,7 +78,7 @@ const Accounts = () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
       showSuccess("Akun berhasil dihapus.");
     },
-    onError: (err) => showError(`Gagal: ${err.message}`)
+    onError: (err) => showError(`Gagal menghapus: ${err.message}`)
   });
 
   const handleAddItem = () => {

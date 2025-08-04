@@ -75,6 +75,15 @@ const Categories = () => {
 
   const deleteCategoryMutation = useMutation({
     mutationFn: async (id: number) => {
+      const categoryToDelete = categoriesData?.find(c => c.id === id);
+      if (!categoryToDelete) throw new Error("Kategori tidak ditemukan.");
+
+      const { count } = await supabase.from('transactions').select('id', { count: 'exact' }).eq('category', categoryToDelete.name);
+
+      if (count && count > 0) {
+        throw new Error('Kategori ini digunakan oleh transaksi lain dan tidak dapat dihapus.');
+      }
+
       const { error } = await supabase.from('categories').delete().match({ id });
       if (error) throw new Error(error.message);
     },
@@ -82,7 +91,7 @@ const Categories = () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
       showSuccess("Item berhasil dihapus.");
     },
-    onError: (err) => showError(`Gagal: ${err.message}`)
+    onError: (err) => showError(`Gagal menghapus: ${err.message}`)
   });
 
   const handleAddItem = () => {

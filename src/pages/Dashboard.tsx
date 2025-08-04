@@ -6,8 +6,78 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { DollarSign, CreditCard, PiggyBank as PiggyBankIcon } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
+import { useMemo } from "react";
+import { startOfMonth, endOfMonth } from "date-fns";
+
+interface Transaction {
+  id: number;
+  date: string;
+  type: "pemasukan" | "pengeluaran";
+  amount: number;
+}
+
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    minimumFractionDigits: 0,
+  }).format(value);
+};
 
 const Dashboard = () => {
+  const { data: transactions, isLoading } = useQuery<Transaction[]>({
+    queryKey: ['dashboard-summary'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('id, date, type, amount');
+      if (error) throw new Error(error.message);
+      return data || [];
+    }
+  });
+
+  const summary = useMemo(() => {
+    if (!transactions) {
+      return { totalBalance: 0, monthlyExpense: 0, monthlyIncome: 0 };
+    }
+
+    const now = new Date();
+    const startOfCurrentMonth = startOfMonth(now);
+    const endOfCurrentMonth = endOfMonth(now);
+
+    let totalIncome = 0;
+    let totalExpense = 0;
+    let monthlyIncome = 0;
+    let monthlyExpense = 0;
+
+    for (const t of transactions) {
+      const transactionDate = new Date(t.date);
+      if (t.type === 'pemasukan') {
+        totalIncome += t.amount;
+        if (transactionDate >= startOfCurrentMonth && transactionDate <= endOfCurrentMonth) {
+          monthlyIncome += t.amount;
+        }
+      } else {
+        totalExpense += t.amount;
+        if (transactionDate >= startOfCurrentMonth && transactionDate <= endOfCurrentMonth) {
+          monthlyExpense += t.amount;
+        }
+      }
+    }
+
+    return {
+      totalBalance: totalIncome - totalExpense,
+      monthlyExpense,
+      monthlyIncome,
+    };
+  }, [transactions]);
+
+  if (isLoading) {
+    return <div>Memuat data dashboard...</div>;
+  }
+
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">Dashboard Utama</h1>
@@ -18,7 +88,7 @@ const Dashboard = () => {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">Rp 45.231.890</div>
+            <div className="text-2xl font-bold">{formatCurrency(summary.totalBalance)}</div>
             <p className="text-xs text-muted-foreground">
               dari semua rekening aktif
             </p>
@@ -32,21 +102,21 @@ const Dashboard = () => {
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">- Rp 4.231.890</div>
+            <div className="text-2xl font-bold text-red-600">{formatCurrency(summary.monthlyExpense)}</div>
             <p className="text-xs text-muted-foreground">
-              +20.1% dari bulan lalu
+              Total pengeluaran bulan ini
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tabungan Bulan Ini</CardTitle>
+            <CardTitle className="text-sm font-medium">Pemasukan Bulan Ini</CardTitle>
             <PiggyBankIcon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">+ Rp 1.500.000</div>
+            <div className="text-2xl font-bold text-green-600">{formatCurrency(summary.monthlyIncome)}</div>
             <p className="text-xs text-muted-foreground">
-              Menuju target liburan
+              Total pemasukan bulan ini
             </p>
           </CardContent>
         </Card>

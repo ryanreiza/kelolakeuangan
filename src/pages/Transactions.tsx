@@ -51,25 +51,17 @@ interface Transaction {
   account: string;
 }
 
-const initialAccounts = [
-  "BCA - 1234567890",
-  "Mandiri - 0987654321",
-  "GoPay - 08123456789",
-];
+interface Category {
+  id: number;
+  name: string;
+  type: string;
+}
 
-const initialCategories = {
-  pemasukan: ["Gaji", "Bonus", "Freelance", "Investasi Pasif"],
-  pengeluaran: [
-    "Transportasi",
-    "Makan & Minum",
-    "Belanja",
-    "Hiburan",
-    "Listrik",
-    "Air",
-    "Internet",
-    "Cicilan Kartu Kredit",
-  ],
-};
+interface Account {
+  id: number;
+  name: string;
+  type: string;
+}
 
 const Transactions = () => {
   const queryClient = useQueryClient();
@@ -83,13 +75,31 @@ const Transactions = () => {
   const [description, setDescription] = useState("");
   const [account, setAccount] = useState("");
 
-  const { data: transactions, isLoading } = useQuery<Transaction[]>({
+  const { data: transactions, isLoading: isLoadingTransactions } = useQuery<Transaction[]>({
     queryKey: ['transactions'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
         .order('date', { ascending: false });
+      if (error) throw new Error(error.message);
+      return data || [];
+    }
+  });
+
+  const { data: categories } = useQuery<Category[]>({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('categories').select('*');
+      if (error) throw new Error(error.message);
+      return data || [];
+    }
+  });
+
+  const { data: accounts } = useQuery<Account[]>({
+    queryKey: ['accounts'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('accounts').select('*');
       if (error) throw new Error(error.message);
       return data || [];
     }
@@ -102,6 +112,7 @@ const Transactions = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
       showSuccess("Transaksi berhasil ditambahkan!");
       setIsDialogOpen(false);
       resetForm();
@@ -118,6 +129,7 @@ const Transactions = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
       showSuccess("Transaksi berhasil dihapus.");
     },
     onError: (err) => {
@@ -161,6 +173,8 @@ const Transactions = () => {
       minimumFractionDigits: 0,
     }).format(value);
   };
+
+  const availableCategories = categories?.filter(c => c.type === (type === 'pemasukan' ? 'pendapatan' : 'pengeluaran' || 'tagihan' || 'hutang')) || [];
 
   return (
     <div>
@@ -216,8 +230,8 @@ const Transactions = () => {
                     <SelectValue placeholder="Pilih kategori" />
                   </SelectTrigger>
                   <SelectContent>
-                    {initialCategories[type].map(cat => (
-                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    {availableCategories.map(cat => (
+                      <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -237,8 +251,8 @@ const Transactions = () => {
                     <SelectValue placeholder="Pilih rekening/dompet" />
                   </SelectTrigger>
                   <SelectContent>
-                    {initialAccounts.map(acc => (
-                      <SelectItem key={acc} value={acc}>{acc}</SelectItem>
+                    {accounts?.map(acc => (
+                      <SelectItem key={acc.id} value={acc.name}>{acc.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -270,7 +284,7 @@ const Transactions = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
+            {isLoadingTransactions ? (
               <TableRow>
                 <TableCell colSpan={6} className="h-24 text-center">
                   Memuat data transaksi...
