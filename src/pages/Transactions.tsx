@@ -39,7 +39,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { showSuccess, showError } from "@/utils/toast";
 
-type TransactionType = "pemasukan" | "pengeluaran";
+type TransactionType = "pemasukan" | "pengeluaran" | "transfer";
 
 interface Transaction {
   id: number;
@@ -73,7 +73,8 @@ const Transactions = () => {
   const [category, setCategory] = useState("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
-  const [account, setAccount] = useState("");
+  const [account, setAccount] = useState(""); // For transfer, this is 'from'
+  const [toAccount, setToAccount] = useState(""); // For transfer, this is 'to'
 
   const { data: transactions, isLoading: isLoadingTransactions } = useQuery<Transaction[]>({
     queryKey: ['transactions'],
@@ -106,8 +107,8 @@ const Transactions = () => {
   });
 
   const addTransactionMutation = useMutation({
-    mutationFn: async (newTransaction: Omit<Transaction, 'id'>) => {
-      const { error } = await supabase.from('transactions').insert([newTransaction]);
+    mutationFn: async (newTransactions: Omit<Transaction, 'id'>[]) => {
+      const { error } = await supabase.from('transactions').insert(newTransactions);
       if (error) throw new Error(error.message);
     },
     onSuccess: () => {
@@ -144,22 +145,43 @@ const Transactions = () => {
     setAmount("");
     setDescription("");
     setAccount("");
+    setToAccount("");
   };
 
   const handleAddTransaction = () => {
-    if (!date || !category || !amount || !account) {
-      showError("Harap isi semua bidang yang diperlukan.");
+    if (!date || !amount) {
+      showError("Harap isi Tanggal dan Jumlah.");
       return;
     }
-    const newTransaction = {
-      date: format(date, "yyyy-MM-dd"),
-      type,
-      category,
-      amount: parseFloat(amount),
-      description,
-      account,
-    };
-    addTransactionMutation.mutate(newTransaction);
+
+    const transactionAmount = parseFloat(amount);
+    const transactionDate = format(date, "yyyy-MM-dd");
+
+    if (type === 'transfer') {
+      if (!account || !toAccount || account === toAccount) {
+        showError("Harap pilih rekening asal dan tujuan yang berbeda.");
+        return;
+      }
+      const transferTransactions = [
+        { date: transactionDate, type: 'pengeluaran' as TransactionType, category: 'Transfer Keluar', amount: transactionAmount, description: description || `Transfer ke ${toAccount}`, account },
+        { date: transactionDate, type: 'pemasukan' as TransactionType, category: 'Transfer Masuk', amount: transactionAmount, description: description || `Transfer dari ${account}`, account: toAccount },
+      ];
+      addTransactionMutation.mutate(transferTransactions);
+    } else {
+      if (!category || !account) {
+        showError("Harap isi Kategori dan Rekening.");
+        return;
+      }
+      const newTransaction = {
+        date: transactionDate,
+        type,
+        category,
+        amount: transactionAmount,
+        description,
+        account,
+      };
+      addTransactionMutation.mutate([newTransaction]);
+    }
   };
 
   const handleDeleteTransaction = (id: number) => {
@@ -227,22 +249,53 @@ const Transactions = () => {
                   <SelectContent>
                     <SelectItem value="pengeluaran">Pengeluaran</SelectItem>
                     <SelectItem value="pemasukan">Pemasukan</SelectItem>
+                    <SelectItem value="transfer">Transfer</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="category" className="text-right">Kategori</Label>
-                <Select value={category} onValueChange={setCategory}>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Pilih kategori" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableCategories.map(cat => (
-                      <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {type === 'transfer' ? (
+                <>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="fromAccount" className="text-right">Dari Rekening</Label>
+                    <Select value={account} onValueChange={setAccount}>
+                      <SelectTrigger className="col-span-3"><SelectValue placeholder="Pilih rekening asal" /></SelectTrigger>
+                      <SelectContent>
+                        {accounts?.map(acc => (<SelectItem key={acc.id} value={acc.name}>{acc.name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="toAccount" className="text-right">Ke Rekening</Label>
+                    <Select value={toAccount} onValueChange={setToAccount}>
+                      <SelectTrigger className="col-span-3"><SelectValue placeholder="Pilih rekening tujuan" /></SelectTrigger>
+                      <SelectContent>
+                        {accounts?.filter(acc => acc.name !== account).map(acc => (<SelectItem key={acc.id} value={acc.name}>{acc.name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="category" className="text-right">Kategori</Label>
+                    <Select value={category} onValueChange={setCategory}>
+                      <SelectTrigger className="col-span-3"><SelectValue placeholder="Pilih kategori" /></SelectTrigger>
+                      <SelectContent>
+                        {availableCategories.map(cat => (<SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="account" className="text-right">Rekening</Label>
+                    <Select value={account} onValueChange={setAccount}>
+                      <SelectTrigger className="col-span-3"><SelectValue placeholder="Pilih rekening/dompet" /></SelectTrigger>
+                      <SelectContent>
+                        {accounts?.map(acc => (<SelectItem key={acc.id} value={acc.name}>{acc.name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="amount" className="text-right">Jumlah</Label>
                 <Input id="amount" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} className="col-span-3" placeholder="Contoh: 50000" />
@@ -251,24 +304,9 @@ const Transactions = () => {
                 <Label htmlFor="description" className="text-right">Keterangan</Label>
                 <Input id="description" value={description} onChange={(e) => setDescription(e.target.value)} className="col-span-3" placeholder="Opsional" />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="account" className="text-right">Rekening</Label>
-                <Select value={account} onValueChange={setAccount}>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Pilih rekening/dompet" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {accounts?.map(acc => (
-                      <SelectItem key={acc.id} value={acc.name}>{acc.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
             <DialogFooter>
-              <DialogClose asChild>
-                <Button variant="outline" onClick={resetForm}>Batal</Button>
-              </DialogClose>
+              <DialogClose asChild><Button variant="outline" onClick={resetForm}>Batal</Button></DialogClose>
               <Button onClick={handleAddTransaction} disabled={addTransactionMutation.isPending}>
                 {addTransactionMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Simpan
@@ -304,7 +342,7 @@ const Transactions = () => {
                   <TableCell>
                     <div className="font-medium">{t.category}</div>
                     <div className={`text-xs ${t.type === 'pemasukan' ? 'text-green-600' : 'text-red-600'}`}>
-                      {t.type === 'pemasukan' ? 'Pemasukan' : 'Pengeluaran'}
+                      {t.type === 'pemasukan' ? 'Pemasukan' : t.category.includes('Transfer') ? 'Transfer' : 'Pengeluaran'}
                     </div>
                   </TableCell>
                   <TableCell className={`text-right font-medium ${t.type === 'pemasukan' ? 'text-green-600' : 'text-red-600'}`}>

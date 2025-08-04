@@ -46,7 +46,7 @@ const Categories = () => {
   const { data: categoriesData, isLoading } = useQuery<CategoryItem[]>({
     queryKey: ['categories'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('categories').select('*');
+      const { data, error } = await supabase.from('categories').select('*').neq('type', 'transfer');
       if (error) throw new Error(error.message);
       return data || [];
     }
