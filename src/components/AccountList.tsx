@@ -8,11 +8,16 @@ import {
 } from "@/components/ui/card";
 import { Trash2 } from "lucide-react";
 
+interface AccountItem {
+  id: number;
+  name: string;
+}
+
 interface AccountListProps {
   title: string;
   description: string;
-  items: string[];
-  onDeleteItem: (itemToDelete: string) => void;
+  items: AccountItem[];
+  onDeleteItem: (idToDelete: number) => void;
 }
 
 export function AccountList({
@@ -32,14 +37,14 @@ export function AccountList({
           {items.length > 0 ? (
             items.map((item) => (
               <div
-                key={item}
+                key={item.id}
                 className="flex items-center justify-between rounded-md border p-3"
               >
-                <span className="text-sm font-medium">{item}</span>
+                <span className="text-sm font-medium">{item.name}</span>
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => onDeleteItem(item)}
+                  onClick={() => onDeleteItem(item.id)}
                 >
                   <Trash2 className="h-4 w-4 text-muted-foreground" />
                 </Button>
