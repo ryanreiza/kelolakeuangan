@@ -16,6 +16,7 @@ interface Transaction {
   date: string;
   type: "pemasukan" | "pengeluaran";
   amount: number;
+  category: string;
 }
 
 const formatCurrency = (value: number) => {
@@ -32,7 +33,7 @@ const Dashboard = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('transactions')
-        .select('id, date, type, amount');
+        .select('id, date, type, amount, category');
       if (error) throw new Error(error.message);
       return data || [];
     }
@@ -56,12 +57,12 @@ const Dashboard = () => {
       const transactionDate = new Date(t.date);
       if (t.type === 'pemasukan') {
         totalIncome += t.amount;
-        if (transactionDate >= startOfCurrentMonth && transactionDate <= endOfCurrentMonth) {
+        if (transactionDate >= startOfCurrentMonth && transactionDate <= endOfCurrentMonth && t.category !== 'Transfer Masuk') {
           monthlyIncome += t.amount;
         }
       } else {
         totalExpense += t.amount;
-        if (transactionDate >= startOfCurrentMonth && transactionDate <= endOfCurrentMonth) {
+        if (transactionDate >= startOfCurrentMonth && transactionDate <= endOfCurrentMonth && t.category !== 'Transfer Keluar') {
           monthlyExpense += t.amount;
         }
       }
