@@ -366,7 +366,7 @@ const Transactions = () => {
                           {accounts?.filter(acc => acc.name !== account).map(acc => (<SelectItem key={acc.id} value={acc.name}>{acc.name}</SelectItem>))}
                         </SelectContent>
                       </Select>
-                    </div
+                    </div>
                   </>
                 ) : (
                   <>
