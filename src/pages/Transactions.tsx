@@ -8,6 +8,7 @@ import {
   DialogTrigger,
   DialogFooter,
   DialogClose,
+  DialogDescription, // Added DialogDescription import
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -32,7 +33,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { PlusCircle, Calendar as CalendarIcon, Trash2, Loader2 } from "lucide-react";
+import { PlusCircle, Calendar as CalendarIcon, Trash2, Loader2, Lock } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { id } from "date-fns/locale";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -66,6 +67,8 @@ interface Account {
 const Transactions = () => {
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false); // State for reset dialog
+  const [resetPassword, setResetPassword] = useState(""); // State for reset password input
 
   // Form state
   const [date, setDate] = useState<Date | undefined>(new Date());
@@ -138,6 +141,48 @@ const Transactions = () => {
     }
   });
 
+  // Mutation for resetting all transactions
+  const resetTransactionsMutation = useMutation({
+    mutationFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !user.email) {
+        throw new Error("Pengguna tidak terautentikasi atau email tidak ditemukan.");
+      }
+
+      // Step 1: Re-authenticate the user with the provided password
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: resetPassword,
+      });
+
+      if (authError) {
+        throw new Error(`Verifikasi kata sandi gagal: ${authError.message}`);
+      }
+
+      // Step 2: Delete all transactions belonging to the user
+      // IMPORTANT: Ensure your 'transactions' table has a 'user_id' column
+      // and appropriate RLS policies (auth.uid() = user_id)
+      const { error: deleteError } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('user_id', user.id); // Delete only transactions belonging to this user
+
+      if (deleteError) {
+        throw new Error(`Gagal menghapus transaksi: ${deleteError.message}`);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
+      showSuccess("Semua transaksi berhasil direset!");
+      setIsResetConfirmOpen(false); // Close the dialog
+      setResetPassword(""); // Clear the password input
+    },
+    onError: (err) => {
+      showError(`Reset gagal: ${err.message}`);
+    },
+  });
+
   const resetForm = () => {
     setDate(new Date());
     setType("pengeluaran");
@@ -188,6 +233,10 @@ const Transactions = () => {
     deleteTransactionMutation.mutate(id);
   };
 
+  const handleResetTransactions = () => {
+    resetTransactionsMutation.mutate();
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
@@ -214,106 +263,152 @@ const Transactions = () => {
             Catat dan lihat semua arus kas Anda di sini.
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="gap-1">
-              <PlusCircle className="h-4 w-4" />
-              Tambah Transaksi
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[480px]">
-            <DialogHeader>
-              <DialogTitle>Tambah Transaksi Baru</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="date" className="text-right">Tanggal</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant={"outline"} className="col-span-3 justify-start text-left font-normal">
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {date ? format(date, "PPP", { locale: id }) : <span>Pilih tanggal</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar mode="single" selected={date} onSelect={setDate} initialFocus />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="type" className="text-right">Transaksi</Label>
-                <Select value={type} onValueChange={(value) => { setType(value as TransactionType); setCategory(''); }}>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Pilih jenis transaksi" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pengeluaran">Pengeluaran</SelectItem>
-                    <SelectItem value="pemasukan">Pemasukan</SelectItem>
-                    <SelectItem value="transfer">Transfer</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {type === 'transfer' ? (
-                <>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="fromAccount" className="text-right">Dari Rekening</Label>
-                    <Select value={account} onValueChange={setAccount}>
-                      <SelectTrigger className="col-span-3"><SelectValue placeholder="Pilih rekening asal" /></SelectTrigger>
-                      <SelectContent>
-                        {accounts?.map(acc => (<SelectItem key={acc.id} value={acc.name}>{acc.name}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="toAccount" className="text-right">Ke Rekening</Label>
-                    <Select value={toAccount} onValueChange={setToAccount}>
-                      <SelectTrigger className="col-span-3"><SelectValue placeholder="Pilih rekening tujuan" /></SelectTrigger>
-                      <SelectContent>
-                        {accounts?.filter(acc => acc.name !== account).map(acc => (<SelectItem key={acc.id} value={acc.name}>{acc.name}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="category" className="text-right">Kategori</Label>
-                    <Select value={category} onValueChange={setCategory}>
-                      <SelectTrigger className="col-span-3"><SelectValue placeholder="Pilih kategori" /></SelectTrigger>
-                      <SelectContent>
-                        {availableCategories.map(cat => (<SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="account" className="text-right">Rekening</Label>
-                    <Select value={account} onValueChange={setAccount}>
-                      <SelectTrigger className="col-span-3"><SelectValue placeholder="Pilih rekening/dompet" /></SelectTrigger>
-                      <SelectContent>
-                        {accounts?.map(acc => (<SelectItem key={acc.id} value={acc.name}>{acc.name}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </>
-              )}
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="amount" className="text-right">Jumlah</Label>
-                <Input id="amount" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} className="col-span-3" placeholder="Contoh: 50000" />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="description" className="text-right">Keterangan</Label>
-                <Input id="description" value={description} onChange={(e) => setDescription(e.target.value)} className="col-span-3" placeholder="Opsional" />
-              </div>
-            </div>
-            <DialogFooter>
-              <DialogClose asChild><Button variant="outline" onClick={resetForm}>Batal</Button></DialogClose>
-              <Button onClick={handleAddTransaction} disabled={addTransactionMutation.isPending}>
-                {addTransactionMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Simpan
+        <div className="flex gap-2"> {/* Added a div to group buttons */}
+          <Dialog open={isResetConfirmOpen} onOpenChange={setIsResetConfirmOpen}>
+            <DialogTrigger asChild>
+              <Button variant="destructive" size="sm" className="gap-1">
+                <Trash2 className="h-4 w-4" />
+                Reset Transaksi
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Reset Semua Transaksi?</DialogTitle>
+                <DialogDescription>
+                  Tindakan ini akan menghapus semua data transaksi Anda secara permanen.
+                  Untuk melanjutkan, masukkan kata sandi akun Anda.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="reset-password" className="text-right">Kata Sandi</Label>
+                  <Input
+                    id="reset-password"
+                    type="password"
+                    value={resetPassword}
+                    onChange={(e) => setResetPassword(e.target.value)}
+                    className="col-span-3"
+                    placeholder="Masukkan kata sandi Anda"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="outline" onClick={() => setResetPassword("")}>Batal</Button>
+                </DialogClose>
+                <Button
+                  variant="destructive"
+                  onClick={handleResetTransactions}
+                  disabled={resetTransactionsMutation.isPending || resetPassword.length === 0}
+                >
+                  {resetTransactionsMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Reset Sekarang
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-1">
+                <PlusCircle className="h-4 w-4" />
+                Tambah Transaksi
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[480px]">
+              <DialogHeader>
+                <DialogTitle>Tambah Transaksi Baru</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="date" className="text-right">Tanggal</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant={"outline"} className="col-span-3 justify-start text-left font-normal">
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {date ? format(date, "PPP", { locale: id }) : <span>Pilih tanggal</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar mode="single" selected={date} onSelect={setDate} initialFocus />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="type" className="text-right">Transaksi</Label>
+                  <Select value={type} onValueChange={(value) => { setType(value as TransactionType); setCategory(''); }}>
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Pilih jenis transaksi" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pengeluaran">Pengeluaran</SelectItem>
+                      <SelectItem value="pemasukan">Pemasukan</SelectItem>
+                      <SelectItem value="transfer">Transfer</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {type === 'transfer' ? (
+                  <>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="fromAccount" className="text-right">Dari Rekening</Label>
+                      <Select value={account} onValueChange={setAccount}>
+                        <SelectTrigger className="col-span-3"><SelectValue placeholder="Pilih rekening asal" /></SelectTrigger>
+                        <SelectContent>
+                          {accounts?.map(acc => (<SelectItem key={acc.id} value={acc.name}>{acc.name}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="toAccount" className="text-right">Ke Rekening</Label>
+                      <Select value={toAccount} onValueChange={setToAccount}>
+                        <SelectTrigger className="col-span-3"><SelectValue placeholder="Pilih rekening tujuan" /></SelectTrigger>
+                        <SelectContent>
+                          {accounts?.filter(acc => acc.name !== account).map(acc => (<SelectItem key={acc.id} value={acc.name}>{acc.name}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
+                    </div
+                  </>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="category" className="text-right">Kategori</Label>
+                      <Select value={category} onValueChange={setCategory}>
+                        <SelectTrigger className="col-span-3"><SelectValue placeholder="Pilih kategori" /></SelectTrigger>
+                        <SelectContent>
+                          {availableCategories.map(cat => (<SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="account" className="text-right">Rekening</Label>
+                      <Select value={account} onValueChange={setAccount}>
+                        <SelectTrigger className="col-span-3"><SelectValue placeholder="Pilih rekening/dompet" /></SelectTrigger>
+                        <SelectContent>
+                          {accounts?.map(acc => (<SelectItem key={acc.id} value={acc.name}>{acc.name}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="amount" className="text-right">Jumlah</Label>
+                  <Input id="amount" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} className="col-span-3" placeholder="Contoh: 50000" />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="description" className="text-right">Keterangan</Label>
+                  <Input id="description" value={description} onChange={(e) => setDescription(e.target.value)} className="col-span-3" placeholder="Opsional" />
+                </div>
+              </div>
+              <DialogFooter>
+                <DialogClose asChild><Button variant="outline" onClick={resetForm}>Batal</Button></DialogClose>
+                <Button onClick={handleAddTransaction} disabled={addTransactionMutation.isPending}>
+                  {addTransactionMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Simpan
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="border rounded-md">
