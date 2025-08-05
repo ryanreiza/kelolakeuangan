@@ -51,6 +51,7 @@ interface Transaction {
   description: string | null;
   account: string;
   user_id: string; // Added user_id
+  saving_goal_id?: string | null; // Added saving_goal_id
 }
 
 interface Category {
@@ -63,6 +64,11 @@ interface Account {
   id: number;
   name: string;
   type: string;
+}
+
+interface SavingGoal {
+  id: string;
+  goal_name: string;
 }
 
 const Transactions = () => {
@@ -79,6 +85,7 @@ const Transactions = () => {
   const [description, setDescription] = useState("");
   const [account, setAccount] = useState("");
   const [toAccount, setToAccount] = useState("");
+  const [savingGoalId, setSavingGoalId] = useState<string | null>(null); // New state for saving goal
 
   const { data: transactions, isLoading: isLoadingTransactions } = useQuery<Transaction[]>({
     queryKey: ['transactions'],
@@ -110,6 +117,15 @@ const Transactions = () => {
     }
   });
 
+  const { data: savingGoals } = useQuery<SavingGoal[]>({
+    queryKey: ['saving_goals'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('saving_goals').select('id, goal_name');
+      if (error) throw new Error(error.message);
+      return data || [];
+    }
+  });
+
   const addTransactionMutation = useMutation({
     mutationFn: async (newTransactions: Omit<Transaction, 'id'>[]) => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -122,6 +138,7 @@ const Transactions = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['saving_goals'] }); // Invalidate saving goals to re-calculate total saved
       showSuccess("Transaksi berhasil ditambahkan!");
       setIsDialogOpen(false);
       resetForm();
@@ -139,6 +156,7 @@ const Transactions = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['saving_goals'] }); // Invalidate saving goals to re-calculate total saved
       showSuccess("Transaksi berhasil dihapus.");
     },
     onError: (err) => {
@@ -174,6 +192,7 @@ const Transactions = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['saving_goals'] }); // Invalidate saving goals
       showSuccess("Semua transaksi berhasil direset!");
       setIsResetConfirmOpen(false);
       setResetPassword("");
@@ -191,6 +210,7 @@ const Transactions = () => {
     setDescription("");
     setAccount("");
     setToAccount("");
+    setSavingGoalId(null); // Reset saving goal ID
   };
 
   const handleAddTransaction = () => {
@@ -217,7 +237,7 @@ const Transactions = () => {
         showError("Harap isi Kategori dan Rekening.");
         return;
       }
-      const newTransaction = {
+      const newTransaction: Omit<Transaction, 'id' | 'user_id'> = {
         date: transactionDate,
         type,
         category,
@@ -225,6 +245,11 @@ const Transactions = () => {
         description,
         account,
       };
+
+      if (type === 'pemasukan' && category === 'Tabungan' && savingGoalId) {
+        newTransaction.saving_goal_id = savingGoalId;
+      }
+
       addTransactionMutation.mutate([newTransaction]);
     }
   };
@@ -253,6 +278,10 @@ const Transactions = () => {
       return categories.filter(c => ['pengeluaran', 'tagihan', 'hutang'].includes(c.type));
     }
   }, [categories, type]);
+
+  const availableSavingGoals = useMemo(() => {
+    return savingGoals || [];
+  }, [savingGoals]);
 
   return (
     <div>
@@ -336,7 +365,7 @@ const Transactions = () => {
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="type" className="text-right">Transaksi</Label>
-                  <Select value={type} onValueChange={(value) => { setType(value as TransactionType); setCategory(''); }}>
+                  <Select value={type} onValueChange={(value) => { setType(value as TransactionType); setCategory(''); setSavingGoalId(null); }}>
                     <SelectTrigger className="col-span-3">
                       <SelectValue placeholder="Pilih jenis transaksi" />
                     </SelectTrigger>
@@ -372,13 +401,24 @@ const Transactions = () => {
                   <>
                     <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="category" className="text-right">Kategori</Label>
-                      <Select value={category} onValueChange={setCategory}>
+                      <Select value={category} onValueChange={(value) => { setCategory(value); setSavingGoalId(null); }}>
                         <SelectTrigger className="col-span-3"><SelectValue placeholder="Pilih kategori" /></SelectTrigger>
                         <SelectContent>
                           {availableCategories.map(cat => (<SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>))}
                         </SelectContent>
                       </Select>
                     </div>
+                    {type === 'pemasukan' && category === 'Tabungan' && (
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="savingGoal" className="text-right">Tujuan Tabungan</Label>
+                        <Select value={savingGoalId || ""} onValueChange={setSavingGoalId}>
+                          <SelectTrigger className="col-span-3"><SelectValue placeholder="Pilih tujuan tabungan" /></SelectTrigger>
+                          <SelectContent>
+                            {availableSavingGoals.map(goal => (<SelectItem key={goal.id} value={goal.id}>{goal.goal_name}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                     <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="account" className="text-right">Rekening</Label>
                       <Select value={account} onValueChange={setAccount}>
