@@ -8,7 +8,7 @@ import {
   DialogTrigger,
   DialogFooter,
   DialogClose,
-  DialogDescription, // Added DialogDescription import
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -50,6 +50,7 @@ interface Transaction {
   amount: number;
   description: string | null;
   account: string;
+  user_id: string; // Added user_id
 }
 
 interface Category {
@@ -67,8 +68,8 @@ interface Account {
 const Transactions = () => {
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false); // State for reset dialog
-  const [resetPassword, setResetPassword] = useState(""); // State for reset password input
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+  const [resetPassword, setResetPassword] = useState("");
 
   // Form state
   const [date, setDate] = useState<Date | undefined>(new Date());
@@ -76,8 +77,8 @@ const Transactions = () => {
   const [category, setCategory] = useState("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
-  const [account, setAccount] = useState(""); // For transfer, this is 'from'
-  const [toAccount, setToAccount] = useState(""); // For transfer, this is 'to'
+  const [account, setAccount] = useState("");
+  const [toAccount, setToAccount] = useState("");
 
   const { data: transactions, isLoading: isLoadingTransactions } = useQuery<Transaction[]>({
     queryKey: ['transactions'],
@@ -111,7 +112,11 @@ const Transactions = () => {
 
   const addTransactionMutation = useMutation({
     mutationFn: async (newTransactions: Omit<Transaction, 'id'>[]) => {
-      const { error } = await supabase.from('transactions').insert(newTransactions);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Pengguna tidak terautentikasi.");
+      
+      const transactionsWithUserId = newTransactions.map(t => ({ ...t, user_id: user.id }));
+      const { error } = await supabase.from('transactions').insert(transactionsWithUserId);
       if (error) throw new Error(error.message);
     },
     onSuccess: () => {
@@ -141,7 +146,6 @@ const Transactions = () => {
     }
   });
 
-  // Mutation for resetting all transactions
   const resetTransactionsMutation = useMutation({
     mutationFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -149,7 +153,6 @@ const Transactions = () => {
         throw new Error("Pengguna tidak terautentikasi atau email tidak ditemukan.");
       }
 
-      // Step 1: Re-authenticate the user with the provided password
       const { error: authError } = await supabase.auth.signInWithPassword({
         email: user.email,
         password: resetPassword,
@@ -159,13 +162,10 @@ const Transactions = () => {
         throw new Error(`Verifikasi kata sandi gagal: ${authError.message}`);
       }
 
-      // Step 2: Delete all transactions belonging to the user
-      // IMPORTANT: Ensure your 'transactions' table has a 'user_id' column
-      // and appropriate RLS policies (auth.uid() = user_id)
       const { error: deleteError } = await supabase
         .from('transactions')
         .delete()
-        .eq('user_id', user.id); // Delete only transactions belonging to this user
+        .eq('user_id', user.id);
 
       if (deleteError) {
         throw new Error(`Gagal menghapus transaksi: ${deleteError.message}`);
@@ -175,8 +175,8 @@ const Transactions = () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
       showSuccess("Semua transaksi berhasil direset!");
-      setIsResetConfirmOpen(false); // Close the dialog
-      setResetPassword(""); // Clear the password input
+      setIsResetConfirmOpen(false);
+      setResetPassword("");
     },
     onError: (err) => {
       showError(`Reset gagal: ${err.message}`);
@@ -263,7 +263,7 @@ const Transactions = () => {
             Catat dan lihat semua arus kas Anda di sini.
           </p>
         </div>
-        <div className="flex gap-2"> {/* Added a div to group buttons */}
+        <div className="flex gap-2">
           <Dialog open={isResetConfirmOpen} onOpenChange={setIsResetConfirmOpen}>
             <DialogTrigger asChild>
               <Button variant="destructive" size="sm" className="gap-1">
