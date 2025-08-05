@@ -27,13 +27,66 @@ import { showSuccess, showError } from "@/utils/toast";
 interface Account {
   id: number;
   name: string;
-  type: 'bank' | 'digital';
+  type: 'bank' | 'digital' | 'cash';
+}
+
+interface AccountListProps {
+  title: string;
+  description: string;
+  items: AccountItem[];
+  onDeleteItem: (idToDelete: number) => void;
+}
+
+interface AccountItem {
+  id: number;
+  name: string;
+}
+
+export function AccountList({
+  title,
+  description,
+  items,
+  onDeleteItem,
+}: AccountListProps) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          {items.length > 0 ? (
+            items.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center justify-between rounded-md border p-3"
+              >
+                <span className="text-sm font-medium">{item.name}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onDeleteItem(item.id)}
+                >
+                  <Trash2 className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </div>
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              Belum ada rekening bank.
+            </p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 const Accounts = () => {
   const queryClient = useQueryClient();
   const [newItem, setNewItem] = useState("");
-  const [newAccountType, setNewAccountType] = useState<'bank' | 'digital'>('bank');
+  const [newAccountType, setNewAccountType] = useState<'bank' | 'digital' | 'cash'>('bank');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const { data: accounts, isLoading } = useQuery<Account[]>({
@@ -87,16 +140,18 @@ const Accounts = () => {
     }
   };
 
-  const { bankAccounts, digitalWallets } = useMemo(() => {
+  const { bankAccounts, digitalWallets, cashAccounts } = useMemo(() => {
     const bank: Account[] = [];
     const digital: Account[] = [];
+    const cash: Account[] = [];
     if (accounts) {
       accounts.forEach(acc => {
         if (acc.type === 'bank') bank.push(acc);
-        else digital.push(acc);
+        else if (acc.type === 'digital') digital.push(acc);
+        else if (acc.type === 'cash') cash.push(acc);
       });
     }
-    return { bankAccounts: bank, digitalWallets: digital };
+    return { bankAccounts: bank, digitalWallets: digital, cashAccounts: cash };
   }, [accounts]);
 
   return (
@@ -115,17 +170,18 @@ const Accounts = () => {
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="type" className="text-right">Tipe Akun</Label>
-                <Select value={newAccountType} onValueChange={(value) => setNewAccountType(value as 'bank' | 'digital')}>
+                <Select value={newAccountType} onValueChange={(value) => setNewAccountType(value as 'bank' | 'digital' | 'cash')}>
                   <SelectTrigger className="col-span-3"><SelectValue placeholder="Pilih tipe" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="bank">Rekening Bank</SelectItem>
                     <SelectItem value="digital">Dompet Digital</SelectItem>
+                    <SelectItem value="cash">Kas Tunai</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="name" className="text-right">Nama & No.</Label>
-                <Input id="name" value={newItem} onChange={(e) => setNewItem(e.target.value)} className="col-span-3" placeholder={newAccountType === 'bank' ? "Contoh: BCA - 1234567890" : "Contoh: GoPay - 0812... "} />
+                <Input id="name" value={newItem} onChange={(e) => setNewItem(e.target.value)} className="col-span-3" placeholder={newAccountType === 'bank' ? "Contoh: BCA - 1234567890" : newAccountType === 'digital' ? "Contoh: GoPay - 0812... " : "Contoh: Dompet Utama"} />
               </div>
             </div>
             <DialogFooter>
@@ -142,6 +198,7 @@ const Accounts = () => {
         <div className="space-y-4">
           <AccountList title="Rekening Bank" description="Daftar semua rekening bank yang Anda miliki." items={bankAccounts} onDeleteItem={(id) => deleteAccountMutation.mutate(id)} />
           <AccountList title="Dompet Digital" description="Daftar semua dompet digital yang Anda miliki." items={digitalWallets} onDeleteItem={(id) => deleteAccountMutation.mutate(id)} />
+          <AccountList title="Kas Tunai" description="Daftar semua akun kas tunai yang Anda miliki." items={cashAccounts} onDeleteItem={(id) => deleteAccountMutation.mutate(id)} />
         </div>
       }
     </div>

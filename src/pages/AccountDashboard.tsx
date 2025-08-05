@@ -8,12 +8,12 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { useMemo } from "react";
-import { Landmark, Wallet } from "lucide-react";
+import { Landmark, Wallet, DollarSign } from "lucide-react";
 
 interface Account {
   id: number;
   name: string;
-  type: 'bank' | 'digital';
+  type: 'bank' | 'digital' | 'cash';
 }
 
 interface Transaction {
@@ -25,7 +25,7 @@ interface Transaction {
 
 interface AccountSummary {
   name: string;
-  type: 'bank' | 'digital';
+  type: 'bank' | 'digital' | 'cash';
   income: number;
   expense: number;
   balance: number;
@@ -58,8 +58,8 @@ const AccountDashboard = () => {
     }
   });
 
-  const { bankAccountsSummary, digitalWalletsSummary } = useMemo(() => {
-    if (!accounts || !transactions) return { bankAccountsSummary: [], digitalWalletsSummary: [] };
+  const { bankAccountsSummary, digitalWalletsSummary, cashAccountsSummary } = useMemo(() => {
+    if (!accounts || !transactions) return { bankAccountsSummary: [], digitalWalletsSummary: [], cashAccountsSummary: [] };
 
     const summaryMap: Record<string, AccountSummary> = {};
 
@@ -89,13 +89,15 @@ const AccountDashboard = () => {
 
     const bank: AccountSummary[] = [];
     const digital: AccountSummary[] = [];
+    const cash: AccountSummary[] = [];
 
     Object.values(summaryMap).forEach(summary => {
       if (summary.type === 'bank') bank.push(summary);
-      else digital.push(summary);
+      else if (summary.type === 'digital') digital.push(summary);
+      else if (summary.type === 'cash') cash.push(summary);
     });
 
-    return { bankAccountsSummary: bank, digitalWalletsSummary: digital };
+    return { bankAccountsSummary: bank, digitalWalletsSummary: digital, cashAccountsSummary: cash };
   }, [accounts, transactions]);
 
   if (isLoadingAccounts || isLoadingTransactions) {
@@ -178,6 +180,42 @@ const AccountDashboard = () => {
             <div className="text-center py-10 border rounded-md">
               <p className="text-muted-foreground">Belum ada dompet digital untuk ditampilkan.</p>
               <p className="text-sm text-muted-foreground">Silakan tambahkan dompet digital di halaman Rekening Bank.</p>
+            </div>
+          )}
+        </div>
+
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Kas Tunai</h2>
+          {cashAccountsSummary.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {cashAccountsSummary.map(summary => (
+                <Card key={summary.name}>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <DollarSign className="h-5 w-5 text-muted-foreground" />
+                      {summary.name}
+                    </CardTitle>
+                    <CardDescription>
+                      Saldo Akhir: <span className="font-bold text-foreground">{formatCurrency(summary.balance)}</span>
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total Pemasukan</span>
+                      <span className="text-green-600 font-medium">{formatCurrency(summary.income)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total Pengeluaran</span>
+                      <span className="text-red-600 font-medium">{formatCurrency(summary.expense)}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-10 border rounded-md">
+              <p className="text-muted-foreground">Belum ada akun kas tunai untuk ditampilkan.</p>
+              <p className="text-sm text-muted-foreground">Silakan tambahkan akun kas tunai di halaman Rekening Bank.</p>
             </div>
           )}
         </div>
