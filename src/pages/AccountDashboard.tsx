@@ -58,8 +58,8 @@ const AccountDashboard = () => {
     }
   });
 
-  const accountSummaries = useMemo(() => {
-    if (!accounts || !transactions) return [];
+  const { bankAccountsSummary, digitalWalletsSummary } = useMemo(() => {
+    if (!accounts || !transactions) return { bankAccountsSummary: [], digitalWalletsSummary: [] };
 
     const summaryMap: Record<string, AccountSummary> = {};
 
@@ -87,7 +87,15 @@ const AccountDashboard = () => {
       summary.balance = summary.income - summary.expense;
     });
 
-    return Object.values(summaryMap);
+    const bank: AccountSummary[] = [];
+    const digital: AccountSummary[] = [];
+
+    Object.values(summaryMap).forEach(summary => {
+      if (summary.type === 'bank') bank.push(summary);
+      else digital.push(summary);
+    });
+
+    return { bankAccountsSummary: bank, digitalWalletsSummary: digital };
   }, [accounts, transactions]);
 
   if (isLoadingAccounts || isLoadingTransactions) {
@@ -100,38 +108,80 @@ const AccountDashboard = () => {
       <p className="text-muted-foreground mb-6">
         Ringkasan saldo dan aliran kas per rekening Anda.
       </p>
-      {accountSummaries.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {accountSummaries.map(summary => (
-            <Card key={summary.name}>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  {summary.type === 'bank' ? <Landmark className="h-5 w-5 text-muted-foreground" /> : <Wallet className="h-5 w-5 text-muted-foreground" />}
-                  {summary.name}
-                </CardTitle>
-                <CardDescription>
-                  Saldo Akhir: <span className="font-bold text-foreground">{formatCurrency(summary.balance)}</span>
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total Pemasukan</span>
-                  <span className="text-green-600 font-medium">{formatCurrency(summary.income)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total Pengeluaran</span>
-                  <span className="text-red-600 font-medium">{formatCurrency(summary.expense)}</span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+
+      <div className="space-y-8">
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Rekening Bank</h2>
+          {bankAccountsSummary.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {bankAccountsSummary.map(summary => (
+                <Card key={summary.name}>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Landmark className="h-5 w-5 text-muted-foreground" />
+                      {summary.name}
+                    </CardTitle>
+                    <CardDescription>
+                      Saldo Akhir: <span className="font-bold text-foreground">{formatCurrency(summary.balance)}</span>
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total Pemasukan</span>
+                      <span className="text-green-600 font-medium">{formatCurrency(summary.income)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total Pengeluaran</span>
+                      <span className="text-red-600 font-medium">{formatCurrency(summary.expense)}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-10 border rounded-md">
+              <p className="text-muted-foreground">Belum ada rekening bank untuk ditampilkan.</p>
+              <p className="text-sm text-muted-foreground">Silakan tambahkan rekening di halaman Rekening Bank.</p>
+            </div>
+          )}
         </div>
-      ) : (
-        <div className="text-center py-10 border rounded-md">
-          <p className="text-muted-foreground">Belum ada rekening untuk ditampilkan.</p>
-          <p className="text-sm text-muted-foreground">Silakan tambahkan rekening di halaman Rekening Bank.</p>
+
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Dompet Digital</h2>
+          {digitalWalletsSummary.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {digitalWalletsSummary.map(summary => (
+                <Card key={summary.name}>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Wallet className="h-5 w-5 text-muted-foreground" />
+                      {summary.name}
+                    </CardTitle>
+                    <CardDescription>
+                      Saldo Akhir: <span className="font-bold text-foreground">{formatCurrency(summary.balance)}</span>
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total Pemasukan</span>
+                      <span className="text-green-600 font-medium">{formatCurrency(summary.income)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total Pengeluaran</span>
+                      <span className="text-red-600 font-medium">{formatCurrency(summary.expense)}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-10 border rounded-md">
+              <p className="text-muted-foreground">Belum ada dompet digital untuk ditampilkan.</p>
+              <p className="text-sm text-muted-foreground">Silakan tambahkan dompet digital di halaman Rekening Bank.</p>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 };
