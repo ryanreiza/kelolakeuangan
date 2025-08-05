@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/card";
 import { DollarSign, CreditCard, PiggyBank as PiggyBankIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { useMemo } from "react";
 import { startOfMonth, endOfMonth } from "date-fns";
 

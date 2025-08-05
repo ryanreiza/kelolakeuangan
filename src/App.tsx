@@ -14,6 +14,8 @@ import SavingTracker from "./pages/SavingTracker";
 import DebtTracker from "./pages/DebtTracker";
 import MonthlyDashboard from "./pages/MonthlyDashboard";
 import AnnualDashboard from "./pages/AnnualDashboard";
+import Login from "./pages/Login";
+import { AuthProvider } from "./components/AuthProvider";
 
 const queryClient = new QueryClient();
 
@@ -24,16 +26,19 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<DashboardLayout />}>
-            <Route index element={<Dashboard />} />
-            <Route path="transactions" element={<Transactions />} />
-            <Route path="categories" element={<Categories />} />
-            <Route path="accounts" element={<Accounts />} />
-            <Route path="account-dashboard" element={<AccountDashboard />} />
-            <Route path="saving-tracker" element={<SavingTracker />} />
-            <Route path="debt-tracker" element={<DebtTracker />} />
-            <Route path="monthly-dashboard" element={<MonthlyDashboard />} />
-            <Route path="annual-dashboard" element={<AnnualDashboard />} />
+          <Route path="/login" element={<Login />} />
+          <Route element={<AuthProvider />}>
+            <Route path="/" element={<DashboardLayout />}>
+              <Route index element={<Dashboard />} />
+              <Route path="transactions" element={<Transactions />} />
+              <Route path="categories" element={<Categories />} />
+              <Route path="accounts" element={<Accounts />} />
+              <Route path="account-dashboard" element={<AccountDashboard />} />
+              <Route path="saving-tracker" element={<SavingTracker />} />
+              <Route path="debt-tracker" element={<DebtTracker />} />
+              <Route path="monthly-dashboard" element={<MonthlyDashboard />} />
+              <Route path="annual-dashboard" element={<AnnualDashboard />} />
+            </Route>
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

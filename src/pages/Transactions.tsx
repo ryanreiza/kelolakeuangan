@@ -36,7 +36,7 @@ import { PlusCircle, Calendar as CalendarIcon, Trash2, Loader2 } from "lucide-re
 import { format, parseISO } from "date-fns";
 import { id } from "date-fns/locale";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 
 type TransactionType = "pemasukan" | "pengeluaran" | "transfer";
