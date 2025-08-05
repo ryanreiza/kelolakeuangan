@@ -20,7 +20,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -42,7 +41,7 @@ interface Transaction {
   amount: number;
   type: "pemasukan" | "pengeluaran";
   saving_goal_id: string | null;
-  category: string; // Added category to filter withdrawals
+  category: string;
 }
 
 const formatCurrency = (value: number) => {
@@ -152,7 +151,7 @@ const SavingTracker = () => {
 
     return savingGoals.map(goal => {
       const linkedIncome = transactions
-        .filter(t => t.saving_goal_id === goal.id && t.type === 'pemasukan')
+        .filter(t => t.saving_goal_id === goal.id && t.type === 'pemasukan' && t.category === 'Tabungan')
         .reduce((sum, t) => sum + t.amount, 0);
 
       const linkedExpenses = transactions

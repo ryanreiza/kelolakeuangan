@@ -9,8 +9,8 @@ import {
 } from "@/components/ui/card";
 import { useMemo } from "react";
 import { Landmark, Wallet, DollarSign } from "lucide-react";
-import { format, parseISO } from "date-fns";
-import { id } from "date-fns/locale";
+import { format, parseISO, isValid } from "date-fns";
+import { id as idLocale } from "date-fns/locale";
 
 interface Account {
   id: number;
@@ -23,7 +23,7 @@ interface Transaction {
   account: string;
   type: "pemasukan" | "pengeluaran";
   amount: number;
-  date: string; // Tambahkan properti date
+  date: string;
 }
 
 interface AccountSummary {
@@ -32,7 +32,7 @@ interface AccountSummary {
   income: number;
   expense: number;
   balance: number;
-  lastCheckedDate: string | null; // Tambahkan properti ini
+  lastCheckedDate: string | null;
 }
 
 const formatCurrency = (value: number) => {
@@ -56,7 +56,7 @@ const AccountDashboard = () => {
   const { data: transactions, isLoading: isLoadingTransactions } = useQuery<Transaction[]>({
     queryKey: ['transactions'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('transactions').select('id, account, type, amount, date'); // Ambil juga kolom date
+      const { data, error } = await supabase.from('transactions').select('id, account, type, amount, date');
       if (error) throw new Error(error.message);
       return data || [];
     }
@@ -74,7 +74,7 @@ const AccountDashboard = () => {
         income: 0,
         expense: 0,
         balance: 0,
-        lastCheckedDate: null, // Inisialisasi null
+        lastCheckedDate: null,
       };
     });
 
@@ -85,8 +85,11 @@ const AccountDashboard = () => {
         } else {
           summaryMap[t.account].expense += t.amount;
         }
-        // Perbarui lastCheckedDate jika transaksi ini lebih baru
-        if (!summaryMap[t.account].lastCheckedDate || parseISO(t.date) > parseISO(summaryMap[t.account].lastCheckedDate)) {
+        
+        const transactionDate = parseISO(t.date);
+        const existingDate = summaryMap[t.account].lastCheckedDate ? parseISO(summaryMap[t.account].lastCheckedDate!) : null;
+
+        if (isValid(transactionDate) && (!existingDate || transactionDate > existingDate)) {
           summaryMap[t.account].lastCheckedDate = t.date;
         }
       }
@@ -148,7 +151,7 @@ const AccountDashboard = () => {
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Pengecekan Akhir</span>
                       <span className="font-medium">
-                        {summary.lastCheckedDate ? format(parseISO(summary.lastCheckedDate), "d MMM yyyy", { locale: id }) : "N/A"}
+                        {summary.lastCheckedDate ? format(parseISO(summary.lastCheckedDate), "d MMM yyyy", { locale: idLocale }) : "N/A"}
                       </span>
                     </div>
                   </CardContent>
@@ -190,7 +193,7 @@ const AccountDashboard = () => {
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Pengecekan Akhir</span>
                       <span className="font-medium">
-                        {summary.lastCheckedDate ? format(parseISO(summary.lastCheckedDate), "d MMM yyyy", { locale: id }) : "N/A"}
+                        {summary.lastCheckedDate ? format(parseISO(summary.lastCheckedDate), "d MMM yyyy", { locale: idLocale }) : "N/A"}
                       </span>
                     </div>
                   </CardContent>
@@ -232,7 +235,7 @@ const AccountDashboard = () => {
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Pengecekan Akhir</span>
                       <span className="font-medium">
-                        {summary.lastCheckedDate ? format(parseISO(summary.lastCheckedDate), "d MMM yyyy", { locale: id }) : "N/A"}
+                        {summary.lastCheckedDate ? format(parseISO(summary.lastCheckedDate), "d MMM yyyy", { locale: idLocale }) : "N/A"}
                       </span>
                     </div>
                   </CardContent>

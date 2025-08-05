@@ -78,6 +78,10 @@ const Categories = () => {
       const categoryToDelete = categoriesData?.find(c => c.id === id);
       if (!categoryToDelete) throw new Error("Kategori tidak ditemukan.");
 
+      if (['Tabungan', 'Penarikan Tabungan', 'Transfer Masuk', 'Transfer Keluar'].includes(categoryToDelete.name)) {
+        throw new Error(`Kategori "${categoryToDelete.name}" adalah kategori sistem dan tidak dapat dihapus.`);
+      }
+
       const { count } = await supabase.from('transactions').select('id', { count: 'exact' }).eq('category', categoryToDelete.name);
 
       if (count && count > 0) {
