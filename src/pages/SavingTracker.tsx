@@ -25,7 +25,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format, parseISO } from "date-fns";
-import { id } from "date-fns/locale";
+import { id as idLocale } from "date-fns/locale"; // Changed import
 import { SavingGoalCard } from "@/components/SavingGoalCard";
 
 interface SavingGoal {
@@ -137,8 +137,8 @@ const SavingTracker = () => {
     addSavingGoalMutation.mutate({
       goal_name: newGoalName.trim(),
       target_date: format(newTargetDate, "yyyy-MM-dd"),
-      target_amount: targetAmountNum,
       initial_cash_amount: initialCashAmountNum,
+      target_amount: targetAmountNum,
     });
   };
 
@@ -228,7 +228,7 @@ const SavingTracker = () => {
                   <PopoverTrigger asChild>
                     <Button variant={"outline"} className="col-span-3 justify-start text-left font-normal">
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {newTargetDate ? format(newTargetDate, "PPP", { locale: id }) : <span>Pilih tanggal</span>}
+                      {newTargetDate ? format(newTargetDate, "PPP", { locale: idLocale }) : <span>Pilih tanggal</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">

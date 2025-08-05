@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/table";
 import { PlusCircle, Calendar as CalendarIcon, Trash2, Loader2, Lock } from "lucide-react";
 import { format, parseISO } from "date-fns";
-import { id } from "date-fns/locale";
+import { id as idLocale } from "date-fns/locale"; // Changed import
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
@@ -355,7 +355,7 @@ const Transactions = () => {
                     <PopoverTrigger asChild>
                       <Button variant={"outline"} className="col-span-3 justify-start text-left font-normal">
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {date ? format(date, "PPP", { locale: id }) : <span>Pilih tanggal</span>}
+                        {date ? format(date, "PPP", { locale: idLocale }) : <span>Pilih tanggal</span>}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0">
@@ -473,7 +473,7 @@ const Transactions = () => {
             ) : transactions && transactions.length > 0 ? (
               transactions.map((t) => (
                 <TableRow key={t.id}>
-                  <TableCell>{format(parseISO(t.date), "d MMM yyyy", { locale: id })}</TableCell>
+                  <TableCell>{format(parseISO(t.date), "d MMM yyyy", { locale: idLocale })}</TableCell>
                   <TableCell>
                     <div className="font-medium">{t.category}</div>
                     <div className={`text-xs ${t.type === 'pemasukan' ? 'text-green-600' : 'text-red-600'}`}>

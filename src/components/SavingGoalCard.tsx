@@ -9,7 +9,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Trash2 } from "lucide-react";
 import { format, parseISO, differenceInMonths } from "date-fns";
-import { id } from "date-fns/locale";
+import { id as idLocale } from "date-fns/locale"; // Changed import
 
 interface SavingGoalCardProps {
   id: string;
@@ -55,7 +55,7 @@ export function SavingGoalCard({
       <CardContent className="grid gap-4">
         <div className="grid grid-cols-2 gap-y-2 text-sm">
           <div className="text-muted-foreground">Waktu Capaian</div>
-          <div className="text-right">{format(parseISO(targetDate), "d MMMM yyyy", { locale: id })}</div>
+          <div className="text-right">{format(parseISO(targetDate), "d MMMM yyyy", { locale: idLocale })}</div>
 
           <div className="text-muted-foreground">Nominal Capaian</div>
           <div className="text-right font-medium">{formatCurrency(targetAmount)}</div>
