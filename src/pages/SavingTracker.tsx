@@ -25,7 +25,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format, parseISO } from "date-fns";
-import { id as idLocale } from "date-fns/locale"; // Changed import
+import { id as idLocale } from "date-fns/locale";
 import { SavingGoalCard } from "@/components/SavingGoalCard";
 
 interface SavingGoal {
@@ -42,6 +42,7 @@ interface Transaction {
   amount: number;
   type: "pemasukan" | "pengeluaran";
   saving_goal_id: string | null;
+  category: string; // Added category to filter withdrawals
 }
 
 const formatCurrency = (value: number) => {
@@ -74,7 +75,7 @@ const SavingTracker = () => {
   const { data: transactions } = useQuery<Transaction[]>({
     queryKey: ['transactions'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('transactions').select('id, amount, type, saving_goal_id');
+      const { data, error } = await supabase.from('transactions').select('id, amount, type, saving_goal_id, category');
       if (error) throw new Error(error.message);
       return data || [];
     }
@@ -103,7 +104,7 @@ const SavingTracker = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['saving_goals'] });
-      queryClient.invalidateQueries({ queryKey: ['transactions'] }); // Invalidate transactions to re-calculate total saved
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
       showSuccess("Tujuan tabungan berhasil dihapus.");
     },
     onError: (err) => showError(`Gagal menghapus tujuan: ${err.message}`)
@@ -150,11 +151,15 @@ const SavingTracker = () => {
     if (!savingGoals || !transactions) return [];
 
     return savingGoals.map(goal => {
-      const linkedTransactionsAmount = transactions
+      const linkedIncome = transactions
         .filter(t => t.saving_goal_id === goal.id && t.type === 'pemasukan')
         .reduce((sum, t) => sum + t.amount, 0);
 
-      const totalSaved = goal.initial_cash_amount + linkedTransactionsAmount;
+      const linkedExpenses = transactions
+        .filter(t => t.saving_goal_id === goal.id && t.type === 'pengeluaran' && t.category === 'Penarikan Tabungan')
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      const totalSaved = goal.initial_cash_amount + linkedIncome - linkedExpenses;
 
       return {
         ...goal,

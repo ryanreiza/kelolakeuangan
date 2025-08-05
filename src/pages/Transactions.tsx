@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/table";
 import { PlusCircle, Calendar as CalendarIcon, Trash2, Loader2, Lock } from "lucide-react";
 import { format, parseISO } from "date-fns";
-import { id as idLocale } from "date-fns/locale"; // Changed import
+import { id as idLocale } from "date-fns/locale";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
@@ -50,8 +50,8 @@ interface Transaction {
   amount: number;
   description: string | null;
   account: string;
-  user_id: string; // Added user_id
-  saving_goal_id?: string | null; // Added saving_goal_id
+  user_id: string;
+  saving_goal_id?: string | null;
 }
 
 interface Category {
@@ -85,7 +85,7 @@ const Transactions = () => {
   const [description, setDescription] = useState("");
   const [account, setAccount] = useState("");
   const [toAccount, setToAccount] = useState("");
-  const [savingGoalId, setSavingGoalId] = useState<string | null>(null); // New state for saving goal
+  const [savingGoalId, setSavingGoalId] = useState<string | null>(null);
 
   const { data: transactions, isLoading: isLoadingTransactions } = useQuery<Transaction[]>({
     queryKey: ['transactions'],
@@ -138,7 +138,7 @@ const Transactions = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
-      queryClient.invalidateQueries({ queryKey: ['saving_goals'] }); // Invalidate saving goals to re-calculate total saved
+      queryClient.invalidateQueries({ queryKey: ['saving_goals'] });
       showSuccess("Transaksi berhasil ditambahkan!");
       setIsDialogOpen(false);
       resetForm();
@@ -156,7 +156,7 @@ const Transactions = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
-      queryClient.invalidateQueries({ queryKey: ['saving_goals'] }); // Invalidate saving goals to re-calculate total saved
+      queryClient.invalidateQueries({ queryKey: ['saving_goals'] });
       showSuccess("Transaksi berhasil dihapus.");
     },
     onError: (err) => {
@@ -192,7 +192,7 @@ const Transactions = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
-      queryClient.invalidateQueries({ queryKey: ['saving_goals'] }); // Invalidate saving goals
+      queryClient.invalidateQueries({ queryKey: ['saving_goals'] });
       showSuccess("Semua transaksi berhasil direset!");
       setIsResetConfirmOpen(false);
       setResetPassword("");
@@ -210,7 +210,7 @@ const Transactions = () => {
     setDescription("");
     setAccount("");
     setToAccount("");
-    setSavingGoalId(null); // Reset saving goal ID
+    setSavingGoalId(null);
   };
 
   const handleAddTransaction = () => {
@@ -246,7 +246,8 @@ const Transactions = () => {
         account,
       };
 
-      if (type === 'pemasukan' && category === 'Tabungan' && savingGoalId) {
+      // Link saving goal for income (Tabungan) or expense (Penarikan Tabungan)
+      if ((type === 'pemasukan' && category === 'Tabungan' || type === 'pengeluaran' && category === 'Penarikan Tabungan') && savingGoalId) {
         newTransaction.saving_goal_id = savingGoalId;
       }
 
@@ -259,7 +260,7 @@ const Transactions = () => {
   };
 
   const handleResetTransactions = () => {
-    resetTransactionsMutation.mutate();
+    handleResetTransactions();
   };
 
   const formatCurrency = (value: number) => {
@@ -275,7 +276,8 @@ const Transactions = () => {
     if (type === 'pemasukan') {
       return categories.filter(c => c.type === 'pendapatan');
     } else {
-      return categories.filter(c => ['pengeluaran', 'tagihan', 'hutang'].includes(c.type));
+      // For expenses, include 'pengeluaran', 'tagihan', 'hutang', and 'Penarikan Tabungan'
+      return categories.filter(c => ['pengeluaran', 'tagihan', 'hutang'].includes(c.type) || c.name === 'Penarikan Tabungan');
     }
   }, [categories, type]);
 
@@ -408,7 +410,7 @@ const Transactions = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                    {type === 'pemasukan' && category === 'Tabungan' && (
+                    {(type === 'pemasukan' && category === 'Tabungan' || type === 'pengeluaran' && category === 'Penarikan Tabungan') && (
                       <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="savingGoal" className="text-right">Tujuan Tabungan</Label>
                         <Select value={savingGoalId || ""} onValueChange={setSavingGoalId}>
