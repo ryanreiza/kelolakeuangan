@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/table";
 import { PlusCircle, Calendar as CalendarIcon, Trash2, Loader2, Lock } from "lucide-react";
 import { format, parseISO } from "date-fns";
-import { id as idLocale } from "date-fns/locale";
+import { id } from "date-fns/locale";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
@@ -50,8 +50,7 @@ interface Transaction {
   amount: number;
   description: string | null;
   account: string;
-  user_id: string;
-  saving_goal_id?: string | null;
+  user_id: string; // Added user_id
 }
 
 interface Category {
@@ -64,11 +63,6 @@ interface Account {
   id: number;
   name: string;
   type: string;
-}
-
-interface SavingGoal {
-  id: string;
-  goal_name: string;
 }
 
 const Transactions = () => {
@@ -85,7 +79,6 @@ const Transactions = () => {
   const [description, setDescription] = useState("");
   const [account, setAccount] = useState("");
   const [toAccount, setToAccount] = useState("");
-  const [savingGoalId, setSavingGoalId] = useState<string | null>(null);
 
   const { data: transactions, isLoading: isLoadingTransactions } = useQuery<Transaction[]>({
     queryKey: ['transactions'],
@@ -117,15 +110,6 @@ const Transactions = () => {
     }
   });
 
-  const { data: savingGoals } = useQuery<SavingGoal[]>({
-    queryKey: ['saving_goals'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('saving_goals').select('id, goal_name');
-      if (error) throw new Error(error.message);
-      return data || [];
-    }
-  });
-
   const addTransactionMutation = useMutation({
     mutationFn: async (newTransactions: Omit<Transaction, 'id'>[]) => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -138,7 +122,6 @@ const Transactions = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
-      queryClient.invalidateQueries({ queryKey: ['saving_goals'] });
       showSuccess("Transaksi berhasil ditambahkan!");
       setIsDialogOpen(false);
       resetForm();
@@ -156,7 +139,6 @@ const Transactions = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
-      queryClient.invalidateQueries({ queryKey: ['saving_goals'] });
       showSuccess("Transaksi berhasil dihapus.");
     },
     onError: (err) => {
@@ -192,7 +174,6 @@ const Transactions = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
-      queryClient.invalidateQueries({ queryKey: ['saving_goals'] });
       showSuccess("Semua transaksi berhasil direset!");
       setIsResetConfirmOpen(false);
       setResetPassword("");
@@ -210,7 +191,6 @@ const Transactions = () => {
     setDescription("");
     setAccount("");
     setToAccount("");
-    setSavingGoalId(null);
   };
 
   const handleAddTransaction = () => {
@@ -237,7 +217,7 @@ const Transactions = () => {
         showError("Harap isi Kategori dan Rekening.");
         return;
       }
-      const newTransaction: Omit<Transaction, 'id' | 'user_id'> = {
+      const newTransaction = {
         date: transactionDate,
         type,
         category,
@@ -245,12 +225,6 @@ const Transactions = () => {
         description,
         account,
       };
-
-      // Link saving goal for income (Tabungan) or expense (Penarikan Tabungan)
-      if ((type === 'pemasukan' && category === 'Tabungan' || type === 'pengeluaran' && category === 'Penarikan Tabungan') && savingGoalId) {
-        newTransaction.saving_goal_id = savingGoalId;
-      }
-
       addTransactionMutation.mutate([newTransaction]);
     }
   };
@@ -260,7 +234,7 @@ const Transactions = () => {
   };
 
   const handleResetTransactions = () => {
-    handleResetTransactions();
+    resetTransactionsMutation.mutate();
   };
 
   const formatCurrency = (value: number) => {
@@ -276,14 +250,9 @@ const Transactions = () => {
     if (type === 'pemasukan') {
       return categories.filter(c => c.type === 'pendapatan');
     } else {
-      // For expenses, include 'pengeluaran', 'tagihan', 'hutang', and 'Penarikan Tabungan'
-      return categories.filter(c => ['pengeluaran', 'tagihan', 'hutang'].includes(c.type) || c.name === 'Penarikan Tabungan');
+      return categories.filter(c => ['pengeluaran', 'tagihan', 'hutang'].includes(c.type));
     }
   }, [categories, type]);
-
-  const availableSavingGoals = useMemo(() => {
-    return savingGoals || [];
-  }, [savingGoals]);
 
   return (
     <div>
@@ -357,7 +326,7 @@ const Transactions = () => {
                     <PopoverTrigger asChild>
                       <Button variant={"outline"} className="col-span-3 justify-start text-left font-normal">
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {date ? format(date, "PPP", { locale: idLocale }) : <span>Pilih tanggal</span>}
+                        {date ? format(date, "PPP", { locale: id }) : <span>Pilih tanggal</span>}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0">
@@ -367,7 +336,7 @@ const Transactions = () => {
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="type" className="text-right">Transaksi</Label>
-                  <Select value={type} onValueChange={(value) => { setType(value as TransactionType); setCategory(''); setSavingGoalId(null); }}>
+                  <Select value={type} onValueChange={(value) => { setType(value as TransactionType); setCategory(''); }}>
                     <SelectTrigger className="col-span-3">
                       <SelectValue placeholder="Pilih jenis transaksi" />
                     </SelectTrigger>
@@ -403,24 +372,13 @@ const Transactions = () => {
                   <>
                     <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="category" className="text-right">Kategori</Label>
-                      <Select value={category} onValueChange={(value) => { setCategory(value); setSavingGoalId(null); }}>
+                      <Select value={category} onValueChange={setCategory}>
                         <SelectTrigger className="col-span-3"><SelectValue placeholder="Pilih kategori" /></SelectTrigger>
                         <SelectContent>
                           {availableCategories.map(cat => (<SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>))}
                         </SelectContent>
                       </Select>
                     </div>
-                    {(type === 'pemasukan' && category === 'Tabungan' || type === 'pengeluaran' && category === 'Penarikan Tabungan') && (
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="savingGoal" className="text-right">Tujuan Tabungan</Label>
-                        <Select value={savingGoalId || ""} onValueChange={setSavingGoalId}>
-                          <SelectTrigger className="col-span-3"><SelectValue placeholder="Pilih tujuan tabungan" /></SelectTrigger>
-                          <SelectContent>
-                            {availableSavingGoals.map(goal => (<SelectItem key={goal.id} value={goal.id}>{goal.goal_name}</SelectItem>))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
                     <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="account" className="text-right">Rekening</Label>
                       <Select value={account} onValueChange={setAccount}>
@@ -475,7 +433,7 @@ const Transactions = () => {
             ) : transactions && transactions.length > 0 ? (
               transactions.map((t) => (
                 <TableRow key={t.id}>
-                  <TableCell>{format(parseISO(t.date), "d MMM yyyy", { locale: idLocale })}</TableCell>
+                  <TableCell>{format(parseISO(t.date), "d MMM yyyy", { locale: id })}</TableCell>
                   <TableCell>
                     <div className="font-medium">{t.category}</div>
                     <div className={`text-xs ${t.type === 'pemasukan' ? 'text-green-600' : 'text-red-600'}`}>
