@@ -24,6 +24,7 @@ interface CategoryItem {
   id: number;
   name: string;
   type: CategoryKey;
+  user_id: string; // Menambahkan user_id
 }
 
 const staticCategoryInfo: Record<CategoryKey, { title: string; description: string }> = {
@@ -60,8 +61,10 @@ const Categories = () => {
   }, [categoriesData, activeCategory]);
 
   const addCategoryMutation = useMutation({
-    mutationFn: async (newCat: { name: string; type: CategoryKey }) => {
-      const { error } = await supabase.from('categories').insert([newCat]);
+    mutationFn: async (newCatData: Omit<CategoryItem, 'id' | 'user_id'>) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Pengguna tidak terautentikasi.");
+      const { error } = await supabase.from('categories').insert([{ ...newCatData, user_id: user.id }]);
       if (error) throw new Error(error.message);
     },
     onSuccess: () => {

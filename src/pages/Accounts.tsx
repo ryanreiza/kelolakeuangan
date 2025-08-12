@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PlusCircle, Loader2, Trash2 } from "lucide-react"; // Menambahkan Trash2 di sini
+import { PlusCircle, Loader2, Trash2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
@@ -35,6 +35,7 @@ interface Account {
   id: number;
   name: string;
   type: 'bank' | 'digital' | 'cash';
+  user_id: string; // Menambahkan user_id
 }
 
 interface AccountListProps {
@@ -106,8 +107,10 @@ const Accounts = () => {
   });
 
   const addAccountMutation = useMutation({
-    mutationFn: async (newAccount: Omit<Account, 'id'>) => {
-      const { error } = await supabase.from('accounts').insert([newAccount]);
+    mutationFn: async (newAccountData: Omit<Account, 'id' | 'user_id'>) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Pengguna tidak terautentikasi.");
+      const { error } = await supabase.from('accounts').insert([{ ...newAccountData, user_id: user.id }]);
       if (error) throw new Error(error.message);
     },
     onSuccess: () => {
